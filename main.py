@@ -1,4 +1,4 @@
-import requests, threading, logging, qbittorrentapi, re, os, datetime, traceback, sys, geocoder, urllib, magichome
+import requests, threading, qbittorrentapi, re, os, datetime, traceback, sys, geocoder, urllib, magichome
 from time import sleep
 from fileinput import input
 from proxmoxer import ProxmoxAPI
@@ -7,51 +7,39 @@ from emojiflags.lookup import lookup
 from socket import socket
 from shutil import copyfileobj
 from models.config import Config
+from clients.telegram_client import telegramClient
+from clients.logger import logger
 
 
 stop_threads = False
-
-
-def logEntry(entry):
-    """ Method that logs actions into the file
-
-    Args:
-        entry (string): log entry
-    """    
-    logging.info(entry)
-    print(entry)
-
 
 class Main():
 
     config = Config('data.json')
 
-    def readMessages(self):
+    def readMessagesThread(self):
         """Method that reads all the messages of the user in a new thread
-        """        
-        update_offset = 1
+        """
         while not stop_threads:
             try:
-                rq = requests.get(f'{self.config.telegram_base_url}getUpdates?offset={update_offset}')
-                if rq.status_code == requests.codes.ok:
-                    data = rq.json()
-                    messages = data['result']
+                messages = telegramClient.getMessages()
+                if type(messages) is list:
                     nMessages = len(messages)
                     if nMessages > 0:
                         last_message = messages[nMessages - 1]['message']
                         if last_message['chat']['id'] == self.config.chat_id:
                             if 'text' in last_message:
-                                logEntry('message recipt: {}'.format(last_message['text']))
+                                logger.logEntry('message recipt: {}'.format(last_message['text']))
                                 self.handleCommands(last_message['text'])
                             else:
-                                logEntry('message recipt, but there was not text detected')
-                            update_offset = messages[nMessages - 1]['update_id'] + 1
+                                logger.logEntry('message recipt, but there was not text detected')
+                            telegramClient.setUpdateOffset(messages[nMessages - 1]['update_id'] + 1)
                 sleep(self.config.message_read_delay)
             except Exception as e:
-                logEntry(f'Excepcion: {e}')
-                logEntry(traceback.format_exc())
-                logEntry(sys.exc_info()[2])
-                update_offset += 1
+                logger.logEntry(f'Excepcion: {e}')
+                logger.logEntry(traceback.format_exc())
+                logger.logEntry(sys.exc_info()[2])
+                telegramClient.incrementUpdateOffset()
                 
     def handleCommands(self, command):
         """Method that handles user commands
@@ -60,7 +48,7 @@ class Main():
             command (string): user command
         """        
         if command.upper() == "HOLA":
-            self.sendMessage("Hola, qué tal?")
+            telegramClient.sendMessage("Hola, qué tal?")
         elif command.upper() == 'EMBY ACTUALIZADO?':
             self.embyUpToDate()
         elif command.upper() == 'EMBY ONLINE':
@@ -83,7 +71,7 @@ class Main():
             self.getPendingSolicitudes()
         elif command.upper() == 'RELOAD':
             self.config = Config('data.json')
-            self.sendMessage('Config reloaded ⚙️')
+            telegramClient.sendMessage('Config reloaded ⚙️')
         elif command.upper() == 'GATO':
             self.funnyCats()
         elif command.upper() == 'LEDS ON':
@@ -93,7 +81,7 @@ class Main():
             controller = magichome.MagicHomeApi(self.config.mhome_led_ip, 0)
             controller.turn_off()
         else:
-            self.sendMessage('Command not found')
+            telegramClient.sendMessage('Command not found')
 
     def embyUpToDate(self):
         """ Method that responds to 'Emby actualizado?' command.
@@ -103,11 +91,11 @@ class Main():
         if rq.status_code == requests.codes.ok:
             data = rq.json()
             if data['HasUpdateAvailable'] == True:
-                self.sendMessage("Actualización disponible! ⏱️")
+                telegramClient.sendMessage("Actualización disponible! ⏱️")
             else:
-                self.sendMessage("Emby está actualizado ✅")
+                telegramClient.sendMessage("Emby está actualizado ✅")
         else:
-            self.sendMessage('Emby no responde ❌')
+            telegramClient.sendMessage('Emby no responde ❌')
 
     def embyOnlineUsers(self):
         """ Method that responds to 'Emby online' command.
@@ -158,19 +146,19 @@ class Main():
                             geocoder.ip(ips[user]).state, lookup(geocoder.ip(ips[user]).country), devices[user])
                     if not userSessions[user] is None:
                         transmissions[user] = f'{user} viendo {userSessions[user]}\n'
-                self.sendMessage(message)
+                telegramClient.sendMessage(message)
 
                 for user in list(userSessions.keys()):
                     if user in transmissions:
-                        self.sendMessage(transmissions[user])
+                        telegramClient.sendMessage(transmissions[user])
 
                     if user in images_path:
                         self.getFileFromURL(images_path[user], 'mainImage.jpeg')
-                        self.sendPhoto('mainImage.jpeg')
+                        telegramClient.sendPhoto('mainImage.jpeg')
                         os.remove('mainImage.jpeg')
             else:
                 message = 'No hay ninguna sesión activa 🟡'
-                self.sendMessage(message)
+                telegramClient.sendMessage(message)
 
     def qbtGetFromState(self, state):
         """ Method that returns all the torrents from a specific state
@@ -179,7 +167,7 @@ class Main():
             state (string): state of the torrents
         """        
         if state != 'comprobando' and state != 'completados' and state != 'descargando' and state != 'error' and state != 'pausados' and state != 'subiendo':
-            self.sendMessage('Estado de torrent no soportado')
+            telegramClient.sendMessage('Estado de torrent no soportado')
             return
 
         qbtClient = qbittorrentapi.Client(host=self.config.qbtHost, username = self.config.qbtUser, password = self.config.qbtPass)
@@ -200,7 +188,7 @@ class Main():
             elif state == 'subiendo' and torrent.state_enum.is_uploading:
                 torrents.append(torrent.info)
         
-        self.sendMessage(f'Torrents en estado {state}:')
+        telegramClient.sendMessage(f'Torrents en estado {state}:')
         message = ''
         torrentIndex = 0
         # From each torrent, it takes the name and the index. If it is downloading,
@@ -230,7 +218,7 @@ class Main():
                 message += f'{dlspeed}/s\n'
                 message += 'ETA = {} ⏱️\n'.format(eta)
             message += '\n'
-        self.sendMessage(message)
+        telegramClient.sendMessage(message)
 
     def pmxVmStatus(self):
         proxmox = ProxmoxAPI(self.config.pmx_host, user=self.config.pmx_user, password=self.config.pmx_pass, verify_ssl=False)
@@ -273,7 +261,7 @@ class Main():
             else:
                 message += '{} 💻\n'.format(global_status['name'])
                 message += 'Status: {}\n'.format(status)
-            self.sendMessage(message)
+            telegramClient.sendMessage(message)
     
     def percentToEmoji(self,percent):
         if percent > 0 and percent < 30:
@@ -297,51 +285,7 @@ class Main():
             return '{:.2f} PB'.format(b/(1024*1024*1024*1024))
         else:
             return '{:.2f} B'.format(b)
-
-    def sendFile(self, filePath):
-        """ Method that sends a file to the telegram conversation
-
-        Args:
-            filePath (string): file path
-        """        
-        file = open(filePath, 'rb')
-        file_bytes = file.read()
-        file.close()
-        response = {
-            'document': (file.name, file_bytes)
-        }
-        requests.post(url=f'{self.config.telegram_base_url}sendDocument?chat_id={self.config.chat_id}', files=response)
-        logEntry(f'File {file.name} send')
-
-    def sendPhoto(self, filePath):
-        img = open(filePath, 'rb')
-        rq = requests.post(f'{self.config.telegram_base_url}sendPhoto?chat_id={self.config.chat_id}', files={'photo':img})
-        img.close()
-        if rq.status_code == requests.codes.ok:
-            logEntry(f'Photo sent')
-        else:
-            logEntry('Error while sending the photo')
     
-    def sendMessage(self, message):
-        """ Method that sends a message to the user
-
-        Args:
-            message (string): message to be send
-        """        
-        if len(message) < 4096:
-            rq = requests.get(f'{self.config.telegram_base_url}sendMessage?chat_id={self.config.chat_id}&text={message}')
-            if rq.status_code == requests.codes.ok:
-                logEntry(f'message sent: {message}')
-            else:
-                logEntry(f'error while sending message {message}')
-                logEntry(rq)
-        else:
-            textFile = open('message.txt', 'w')
-            textFile.write(message)
-            textFile.close()
-            self.sendFile('message.txt')
-            os.remove('message.txt')
-
     def pingHosts(self, thread = False):
         anyException = False
         serviceDown = list()
@@ -366,11 +310,11 @@ class Main():
                         message += '\n{}'.format(host['name'])
                     message += f'\n{address}:{port} ❌'
                     if thread is False:
-                        self.sendMessage(message)
+                        telegramClient.sendMessage(message)
             finally:
                 s.close()
         if anyException is False and thread is False:
-            self.sendMessage('Todos los servicios online ✅')
+            telegramClient.sendMessage('Todos los servicios online ✅')
         return not anyException, serviceDown, message
     
     def pingHost_Thread (self):
@@ -380,10 +324,10 @@ class Main():
             if up is False:
                 for service in services:
                     if service not in down_services:
-                        self.sendMessage(message)
+                        telegramClient.sendMessage(message)
                         down_services.append(service)
             elif len(down_services) != 0:
-                self.sendMessage(f'Todos los servicios han vuelto a estar operativos ✅')
+                telegramClient.sendMessage(f'Todos los servicios han vuelto a estar operativos ✅')
                 down_services.clear()
 
             sleep(self.config.time_between_comprobations)
@@ -411,9 +355,9 @@ class Main():
             message += 'Nubes: {:.2f}%\n'.format(cloud_percentage)
             message += 'Precipitaciones: {:.2f}\n'.format(precip)
             message += '{:.2f}% de humedad\n'.format(humidity_percentage)
-            self.sendMessage(message)
+            telegramClient.sendMessage(message)
         else:
-            self.sendMessage('No se ha podido obtener el tiempo')
+            telegramClient.sendMessage('No se ha podido obtener el tiempo')
     
     def weatherRequestHandeler(self, argument):
         if re.search('[0-9]+', argument.upper()):
@@ -470,7 +414,7 @@ class Main():
         type = solicitude['media']['mediaType']
         tmdb_id = solicitude['media']['tmdbId']
         self.tmdbGetPoster(id=tmdb_id, type=type)
-        self.sendPhoto(f'{tmdb_id}.jpeg')
+        telegramClient.sendPhoto(f'{tmdb_id}.jpeg')
         os.remove(f'{tmdb_id}.jpeg')
 
         tmdb_data = requests.get('{}{}/{}?api_key={}&language={}'.format(self.config.tmdb_main_api_url, type, tmdb_id, self.config.tmdb_api_key, self.config.tmdb_lang))
@@ -483,7 +427,7 @@ class Main():
                 message += '{:.2f}/10 ⭐\n'.format(tmdb_data['vote_average'])
                 message += 'Type: {}'.format(type)
                 message += '\n\n{}'.format(tmdb_data['overview'])
-                self.sendMessage(message)
+                telegramClient.sendMessage(message)
             elif type == 'tv':
                 tmdb_data = tmdb_data.json()
                 message = tmdb_data['name']
@@ -495,7 +439,7 @@ class Main():
                 for season in solicitude['seasons']:
                     message += '{} '.format(season['seasonNumber'])
                 message += '\n\n{}'.format(tmdb_data['overview'])
-                self.sendMessage(message)
+                telegramClient.sendMessage(message)
 
     def solicitudesThread(self):
         current_solicitudes = list()
@@ -508,7 +452,7 @@ class Main():
                 solicitudes = self.getPendingSolicitudes(print=False)
                 for result in solicitudes:
                     if result['id'] not in current_solicitudes:
-                        self.sendMessage('Nueva solicitud detectada')
+                        telegramClient.sendMessage('Nueva solicitud detectada')
                         current_solicitudes.append(result['id'])
                         self.getSingleSolicitude(result)
             except:
@@ -522,7 +466,7 @@ class Main():
 
     def funnyCats(self):
         self.getFileFromURL("https://cataas.com/cat/gif", "cat.gif")
-        self.sendFile('cat.gif')
+        telegramClient.sendFile('cat.gif')
         os.remove('cat.gif')
 
     def getFileFromURL(self, url, filename):
@@ -535,23 +479,22 @@ class Main():
             del photo_rq
 
 if __name__ == '__main__':
-    logging.basicConfig(handlers=[logging.FileHandler(filename="log.txt", encoding='utf-8', mode='w')], level=logging.INFO, format='%(asctime)s - %(message)s')
     main = Main()
-    logEntry('Bot starting in 3 seconds.')
-    logEntry('Write \'exit\' to exit')
+    logger.logEntry('Bot starting in 3 seconds.')
+    logger.logEntry('Write \'exit\' to exit')
     sleep(3)
     print('')
 
-    logEntry('Bot started')
-    reading = threading.Thread(target=main.readMessages)
+    logger.logEntry('Bot started')
+    reading = threading.Thread(target=main.readMessagesThread)
     reading.start()
-    logEntry('Reading thread started')
+    logger.logEntry('Reading thread started')
     host_comprobation = threading.Thread(target=main.pingHost_Thread)
     host_comprobation.start()
-    logEntry('Host comprobation thread started')
+    logger.logEntry('Host comprobation thread started')
     solicitudes_thread = threading.Thread(target=main.solicitudesThread)
     solicitudes_thread.start()
-    logEntry('Solicitudes thread started')
+    logger.logEntry('Solicitudes thread started')
 
     for line in input():
         if line.rstrip().upper() == 'EXIT':
@@ -561,5 +504,5 @@ if __name__ == '__main__':
             solicitudes_thread.join()
             break
         else: 
-            logEntry('stdin not recognized')
+            logger.logEntry('stdin not recognized')
     
