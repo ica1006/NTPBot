@@ -1,16 +1,12 @@
 import requests, os
 from clients.logger import logger
-from models.config import Config
+from config import config
 
 class TelegramClient():
-    config: Config
     update_offset = 1
 
-    def __init__(self, config_path) -> None:
-        self.config = Config(config_path)
-
     def getMessages(self) -> list:
-        rq = requests.get(f'{self.config.telegram_base_url}getUpdates?offset={self.update_offset}')
+        rq = requests.get(f'{config.telegram_base_url}getUpdates?offset={self.update_offset}')
         if rq.status_code == requests.codes.ok:
             data = rq.json()
             messages = data['result']
@@ -29,7 +25,7 @@ class TelegramClient():
             message (string): message to be send
         """        
         if len(message) < 4096:
-            rq = requests.get(f'{self.config.telegram_base_url}sendMessage?chat_id={self.config.chat_id}&text={message}')
+            rq = requests.get(f'{config.telegram_base_url}sendMessage?chat_id={config.chat_id}&text={message}')
             if rq.status_code == requests.codes.ok:
                 logger.logEntry(f'message sent: {message}')
             else:
@@ -54,12 +50,12 @@ class TelegramClient():
         response = {
             'document': (file.name, file_bytes)
         }
-        requests.post(url=f'{self.config.telegram_base_url}sendDocument?chat_id={self.config.chat_id}', files=response)
+        requests.post(url=f'{config.telegram_base_url}sendDocument?chat_id={config.chat_id}', files=response)
         logger.logEntry(f'File {file.name} sent')
     
     def sendPhoto(self, filePath):
         img = open(filePath, 'rb')
-        rq = requests.post(f'{self.config.telegram_base_url}sendPhoto?chat_id={self.config.chat_id}', files={'photo':img})
+        rq = requests.post(f'{config.telegram_base_url}sendPhoto?chat_id={config.chat_id}', files={'photo':img})
         img.close()
         if rq.status_code == requests.codes.ok:
             logger.logEntry(f'Photo sent')
@@ -67,4 +63,4 @@ class TelegramClient():
             logger.logEntry('Error while sending the photo')
 
 
-telegramClient = TelegramClient('data.json')
+telegramClient = TelegramClient()

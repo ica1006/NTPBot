@@ -83,3 +83,5 @@ class Config():
         self.overseerr_url = data['overseerr_base_url']
         self.mhome_led_ip = data['magichome_led_device_ip']
         self.message_read_delay = data['message_read_delay']
+
+config = Config('data.json')
