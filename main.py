@@ -1,15 +1,16 @@
-import requests, threading, qbittorrentapi, re, os, datetime, traceback, sys, magichome
+import requests, threading, re, datetime, traceback, sys, magichome
 from config import config
 from time import sleep
 from fileinput import input
 from proxmoxer import ProxmoxAPI
 from emojiflags.lookup import lookup
 from socket import socket
-from utils import getFileFromURL, bytesConversor, percentToEmoji, weatherEmoji
+from utils import bytesConversor, percentToEmoji, weatherEmoji, funnyCats
 from clients.telegram_client import telegramClient
 from clients.logger import logger
 from clients.emby_client import embyClient
 from clients.qbittorrent_client import qbittorentClient
+from clients.overseerr_client import overseerrClient
 
 
 stop_threads = False
@@ -67,12 +68,12 @@ class Main():
             argument = ' '.join(words)
             self.weatherRequestHandeler(argument)
         elif command.upper() == 'SOLICITUDES':
-            self.getPendingSolicitudes()
+            overseerrClient.getPendingSolicitudes()
         elif command.upper() == 'RELOAD':
             config.reload()
             telegramClient.sendMessage('Config reloaded ⚙️')
         elif command.upper() == 'GATO':
-            self.funnyCats()
+            funnyCats()
         elif command.upper() == 'LEDS ON':
             controller = magichome.MagicHomeApi(config.mhome_led_ip, 0)
             controller.turn_on()
@@ -211,78 +212,23 @@ class Main():
             request = '{}&city={}'.format(config.weatherbit_url, argument)
             self.getWeather(request)
 
-    def getPendingSolicitudes(self, print=True):
-        headers = {
-            'X-Api-Key': config.overseerr_api_key
-        }
-
-        rq = requests.get(url='{}{}'.format(config.overseerr_url, 'request'), headers=headers)
-        if rq.status_code == requests.codes.ok:
-            data = rq.json()
-            results = data['results']
-            if print is True:
-                for result in results:
-                    self.getSingleSolicitude(result)
-            return results
-    
-    def getSingleSolicitude(self, solicitude):
-        type = solicitude['media']['mediaType']
-        tmdb_id = solicitude['media']['tmdbId']
-        self.tmdbGetPoster(id=tmdb_id, content_type=type)
-        telegramClient.sendPhoto(f'{tmdb_id}.jpeg')
-        os.remove(f'{tmdb_id}.jpeg')
-
-        tmdb_data = requests.get('{}{}/{}?api_key={}&language={}'.format(config.tmdb_main_api_url, type, tmdb_id, config.tmdb_api_key, config.tmdb_lang))
-        if tmdb_data.status_code == requests.codes.ok:
-            if type == 'movie':
-                tmdb_data = tmdb_data.json()
-                message = tmdb_data['title']
-                message += '\n({})\n'.format(tmdb_data['original_title'])
-                message += '{} 📆\n'.format(tmdb_data['release_date'])
-                message += '{:.2f}/10 ⭐\n'.format(tmdb_data['vote_average'])
-                message += 'Type: {}'.format(type)
-                message += '\n\n{}'.format(tmdb_data['overview'])
-                telegramClient.sendMessage(message)
-            elif type == 'tv':
-                tmdb_data = tmdb_data.json()
-                message = tmdb_data['name']
-                message += '\n({})\n'.format(tmdb_data['original_name'])
-                message += '{} 📆\n'.format(tmdb_data['first_air_date'])
-                message += '{:.2f}/10 ⭐\n'.format(tmdb_data['vote_average'])
-                message += 'Type: {}\n'.format(type)
-                message += 'Seasons:\n  '
-                for season in solicitude['seasons']:
-                    message += '{} '.format(season['seasonNumber'])
-                message += '\n\n{}'.format(tmdb_data['overview'])
-                telegramClient.sendMessage(message)
-
     def solicitudesThread(self):
         current_solicitudes = list()
 
-        for result in self.getPendingSolicitudes(print=False):
+        for result in overseerrClient.getPendingSolicitudes(print_solicitudes=False):
             current_solicitudes.append(result['id'])
         
         while not stop_threads:
             try:
-                solicitudes = self.getPendingSolicitudes(print=False)
+                solicitudes = overseerrClient.getPendingSolicitudes(print_solicitudes=False)
                 for result in solicitudes:
                     if result['id'] not in current_solicitudes:
                         telegramClient.sendMessage('Nueva solicitud detectada')
                         current_solicitudes.append(result['id'])
-                        self.getSingleSolicitude(result)
+                        overseerrClient.getSingleSolicitude(result)
             except:
                 pass
             sleep(10)
-
-    def tmdbGetPoster(self, id, content_type='movie'):
-        data_request = requests.get('{}{}/{}?api_key={}'.format(config.tmdb_main_api_url, content_type, id, config.tmdb_api_key))
-        if data_request.status_code == requests.codes.ok:
-            getFileFromURL('{}{}'.format(config.tmdb_poster_url, data_request.json()['poster_path']), f'{id}.jpeg')
-
-    def funnyCats(self):
-        getFileFromURL("https://cataas.com/cat/gif", "cat.gif")
-        telegramClient.sendFile('cat.gif')
-        os.remove('cat.gif')
 
 if __name__ == '__main__':
     main = Main()

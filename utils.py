@@ -1,5 +1,7 @@
-import urllib, requests
+import urllib, requests, os
 from shutil import copyfileobj
+from config import config
+from clients.telegram_client import telegramClient
 
 def bytesConversor (b):
     if b > 1024 and b < 1024*1024:
@@ -56,3 +58,13 @@ def weatherEmoji(code):
         return '☁️☁️'
     if code == 900:
         return '🌧️🌧️'
+
+def tmdbGetPoster(id, content_type='movie'):
+    data_request = requests.get('{}{}/{}?api_key={}'.format(config.tmdb_main_api_url, content_type, id, config.tmdb_api_key))
+    if data_request.status_code == requests.codes.ok:
+        getFileFromURL('{}{}'.format(config.tmdb_poster_url, data_request.json()['poster_path']), f'{id}.jpeg')
+
+def funnyCats():
+    getFileFromURL("https://cataas.com/cat/gif", "cat.gif")
+    telegramClient.sendFile('cat.gif')
+    os.remove('cat.gif')
