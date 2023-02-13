@@ -5,10 +5,11 @@ from fileinput import input
 from proxmoxer import ProxmoxAPI
 from emojiflags.lookup import lookup
 from socket import socket
-from utils import getFileFromURL, bytesConversor, percentToEmoji
+from utils import getFileFromURL, bytesConversor, percentToEmoji, weatherEmoji
 from clients.telegram_client import telegramClient
 from clients.logger import logger
 from clients.emby_client import embyClient
+from clients.qbittorrent_client import qbittorentClient
 
 
 stop_threads = False
@@ -53,7 +54,7 @@ class Main():
             embyClient.embyOnlineUsers()
         elif re.search('QBITTORRENT [A-z]+', command.upper()):
             words = command.split()
-            self.qbtGetFromState(words[1])
+            qbittorentClient.qbtGetFromState(words[1])
         elif command.upper() == 'PROXMOX ESTADO':
             self.pmxVmStatus()
         elif command.upper() == 'PING':
@@ -68,7 +69,7 @@ class Main():
         elif command.upper() == 'SOLICITUDES':
             self.getPendingSolicitudes()
         elif command.upper() == 'RELOAD':
-            config = Config('data.json')
+            config.reload()
             telegramClient.sendMessage('Config reloaded ⚙️')
         elif command.upper() == 'GATO':
             self.funnyCats()
@@ -80,66 +81,6 @@ class Main():
             controller.turn_off()
         else:
             telegramClient.sendMessage('Command not found')
-
-    def qbtGetFromState(self, state):
-        """ Method that returns all the torrents from a specific state
-
-        Args:
-            state (string): state of the torrents
-        """        
-        if state != 'comprobando' and state != 'completados' and state != 'descargando' and state != 'error' and state != 'pausados' and state != 'subiendo':
-            telegramClient.sendMessage('Estado de torrent no soportado')
-            return
-
-        qbtClient = qbittorrentapi.Client(host=config.qbtHost, username = config.qbtUser, password = config.qbtPass)
-        torrents = list()
-        
-        # Add the specific torrents to the info list
-        for torrent in qbtClient.torrents_info():
-            if state == 'comprobando' and torrent.state_enum.is_checking:
-                torrents.append(torrent.info)
-            elif state == 'completados' and torrent.state_enum.is_complete:
-                torrents.append(torrent.info)
-            elif state == 'descargando' and torrent.state_enum.is_downloading:
-                torrents.append(torrent.info)
-            elif state == 'error' and torrent.state_enum.is_errored:
-                torrents.append(torrent.info)
-            elif state == 'pausados' and torrent.state_enum.is_paused:
-                torrents.append(torrent.info)
-            elif state == 'subiendo' and torrent.state_enum.is_uploading:
-                torrents.append(torrent.info)
-        
-        telegramClient.sendMessage(f'Torrents en estado {state}:')
-        message = ''
-        torrentIndex = 0
-        # From each torrent, it takes the name and the index. If it is downloading,
-        # it takes more info, like the downloaded %, eta, download speed, etc
-        for torrent in torrents:
-            torrentIndex += 1
-            message += '{}, {}/{}\n'.format(torrent['name'], torrentIndex, len(torrents))
-            if state == 'descargando':
-                percent = torrent['completed'] / torrent['size'] * 100
-                eta = torrent['eta']
-                dlspeed = bytesConversor(torrent['dlspeed'])
-                if eta >= 604800:
-                    eta = '♾️'
-                else:
-                    eta = str(datetime.timedelta(seconds=eta))
-                message += '{:.2f}% '.format(percent)
-                if percent < 40 and eta != '♾️':
-                    message += '🟠  '
-                elif percent >= 40 and percent < 60 and eta != '♾️':
-                    message += '🟡  '
-                elif percent >= 60 and percent < 80 and eta != '♾️':
-                    message += '🔵  '
-                elif percent >= 80 and eta != '♾️':
-                    message += '🟢  '
-                elif eta == '♾️':
-                    message += '🔴  '
-                message += f'{dlspeed}/s\n'
-                message += 'ETA = {} ⏱️\n'.format(eta)
-            message += '\n'
-        telegramClient.sendMessage(message)
 
     def pmxVmStatus(self):
         proxmox = ProxmoxAPI(config.pmx_host, user=config.pmx_user, password=config.pmx_pass, verify_ssl=False)
@@ -247,7 +188,7 @@ class Main():
             precip = data['precip']
 
             message = f'{city_name} {lookup(country_code)}\n'
-            message += f'{self.weatherEmoji(code)} {description}\n'
+            message += f'{weatherEmoji(code)} {description}\n'
             message += '🌡️ {:.2f}º, se siente como {:.2f}º\n'.format(temp, temp_feels_like)
             message += 'Viento: {:.2f}m/s {}\n'.format(wind_spd, wind_dir)
             message += 'Nubes: {:.2f}%\n'.format(cloud_percentage)
@@ -270,30 +211,6 @@ class Main():
             request = '{}&city={}'.format(config.weatherbit_url, argument)
             self.getWeather(request)
 
-    def weatherEmoji(self, code):
-        if code >= 200 and code <= 202:
-            return '⛈️💧'
-        if code >= 230 and code <= 233:
-            return '🌩️⚡'
-        if code >= 300 and code <= 302:
-            return '🌨️❄️'
-        if code >= 500 and code <= 522:
-            return '🌧️☔'
-        if code >= 600 and code <= 623:
-            return '🌨️⛄'
-        if code >= 700 and code <= 741:
-            return '🌁🌫️'
-        if code == 800:
-            return '☀️😎'
-        if code >= 801 and code <= 802:
-            return '🌤️🌞'
-        if code == 803:
-            return '🌥️☁️'
-        if code == 804:
-            return '☁️☁️'
-        if code == 900:
-            return '🌧️🌧️'
-
     def getPendingSolicitudes(self, print=True):
         headers = {
             'X-Api-Key': config.overseerr_api_key
@@ -311,7 +228,7 @@ class Main():
     def getSingleSolicitude(self, solicitude):
         type = solicitude['media']['mediaType']
         tmdb_id = solicitude['media']['tmdbId']
-        self.tmdbGetPoster(id=tmdb_id, type=type)
+        self.tmdbGetPoster(id=tmdb_id, content_type=type)
         telegramClient.sendPhoto(f'{tmdb_id}.jpeg')
         os.remove(f'{tmdb_id}.jpeg')
 
@@ -357,8 +274,8 @@ class Main():
                 pass
             sleep(10)
 
-    def tmdbGetPoster(self, id, type='movie'):
-        data_request = requests.get('{}{}/{}?api_key={}'.format(config.tmdb_main_api_url, type, id, config.tmdb_api_key))
+    def tmdbGetPoster(self, id, content_type='movie'):
+        data_request = requests.get('{}{}/{}?api_key={}'.format(config.tmdb_main_api_url, content_type, id, config.tmdb_api_key))
         if data_request.status_code == requests.codes.ok:
             getFileFromURL('{}{}'.format(config.tmdb_poster_url, data_request.json()['poster_path']), f'{id}.jpeg')
 

@@ -2,6 +2,8 @@ from json import load
 
 class Config():
 
+    path = ''
+
     message_read_delay: int
 
     # Telegram
@@ -53,7 +55,12 @@ class Config():
     mhome_led_ip: str
     ping_timeout: int
     
-    def __init__(self, path='config.json') -> None:
+    def __init__(self, path='data.json') -> None:
+        self.path = path
+        self.loadData(path)
+
+    
+    def loadData(self, path='data.json'):
         with open(path, encoding='UTF-8') as json_file:
             data = load(json_file)
         
@@ -83,5 +90,8 @@ class Config():
         self.overseerr_url = data['overseerr_base_url']
         self.mhome_led_ip = data['magichome_led_device_ip']
         self.message_read_delay = data['message_read_delay']
+    
+    def reload(self):
+        self.loadData(self.path)
 
 config = Config('data.json')

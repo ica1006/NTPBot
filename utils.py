@@ -32,3 +32,27 @@ def percentToEmoji(percent):
     if percent >= 90:
         return '🔴'
     return '⚪'
+
+def weatherEmoji(code):
+    if code >= 200 and code <= 202:
+        return '⛈️💧'
+    if code >= 230 and code <= 233:
+        return '🌩️⚡'
+    if code >= 300 and code <= 302:
+        return '🌨️❄️'
+    if code >= 500 and code <= 522:
+        return '🌧️☔'
+    if code >= 600 and code <= 623:
+        return '🌨️⛄'
+    if code >= 700 and code <= 741:
+        return '🌁🌫️'
+    if code == 800:
+        return '☀️😎'
+    if code >= 801 and code <= 802:
+        return '🌤️🌞'
+    if code == 803:
+        return '🌥️☁️'
+    if code == 804:
+        return '☁️☁️'
+    if code == 900:
+        return '🌧️🌧️'
