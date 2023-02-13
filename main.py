@@ -1,14 +1,14 @@
-import requests, threading, qbittorrentapi, re, os, datetime, traceback, sys, geocoder, urllib, magichome
+import requests, threading, qbittorrentapi, re, os, datetime, traceback, sys, magichome
 from config import config
 from time import sleep
 from fileinput import input
 from proxmoxer import ProxmoxAPI
-from dateutil import parser
 from emojiflags.lookup import lookup
 from socket import socket
-from shutil import copyfileobj
+from utils import getFileFromURL, bytesConversor, percentToEmoji
 from clients.telegram_client import telegramClient
 from clients.logger import logger
+from clients.emby_client import embyClient
 
 
 stop_threads = False
@@ -48,9 +48,9 @@ class Main():
         if command.upper() == "HOLA":
             telegramClient.sendMessage("Hola, qué tal?")
         elif command.upper() == 'EMBY ACTUALIZADO?':
-            self.embyUpToDate()
+            embyClient.embyUpToDate()
         elif command.upper() == 'EMBY ONLINE':
-            self.embyOnlineUsers()
+            embyClient.embyOnlineUsers()
         elif re.search('QBITTORRENT [A-z]+', command.upper()):
             words = command.split()
             self.qbtGetFromState(words[1])
@@ -80,83 +80,6 @@ class Main():
             controller.turn_off()
         else:
             telegramClient.sendMessage('Command not found')
-
-    def embyUpToDate(self):
-        """ Method that responds to 'Emby actualizado?' command.
-            It checks if the emby server is up to date
-        """        
-        rq = requests.get(f'{config.emby_base_url}System/Info?api_key={config.emby_api_key}')
-        if rq.status_code == requests.codes.ok:
-            data = rq.json()
-            if data['HasUpdateAvailable'] == True:
-                telegramClient.sendMessage("Actualización disponible! ⏱️")
-            else:
-                telegramClient.sendMessage("Emby está actualizado ✅")
-        else:
-            telegramClient.sendMessage('Emby no responde ❌')
-
-    def embyOnlineUsers(self):
-        """ Method that responds to 'Emby online' command.
-            It checks emby online sessions.
-        """    
-        # https://media.ivan-cortes.es/Sessions?api_key=cf46d33d2363453fac9f093db3171ee5    
-        rq = requests.get(f'{config.emby_base_url}Sessions?api_key={config.emby_api_key}')
-        if rq.status_code == requests.codes.ok:
-            sessions = rq.json()
-            nSessions = len(sessions)
-            userSessions = dict()
-            images_path = dict()
-            dates = dict()
-            ips = dict()
-            devices = dict()
-
-            if nSessions > 0:
-                for session in sessions:
-                    if 'UserName' in session and session['UserName'] not in userSessions:
-                        userSessions[session['UserName']] = None
-                        dates[session['UserName']] = parser.parse(session['LastActivityDate']).strftime('%H:%M:%S  \n    %d/%m/%y')
-                        dates[session['UserName']] = dates[session['UserName']].replace(' ', '🕑', 1)
-                        ips[session['UserName']] = session['RemoteEndPoint']
-                        devices[session['UserName']] = session['DeviceName']
-                        if session['Client'] == 'Emby for Android':
-                            devices[session['UserName']] += '\n    Android 🤖'
-                        elif session['Client'] == 'Emby for iOS':
-                            devices[session['UserName']] += '\n    iOS 🍏'
-                        elif session['Client'] == 'Emby Web':
-                            devices[session['UserName']] += '\n    Web 🌐'
-                        elif session['Client'] == 'Emby for Apple Watch':
-                            devices[session['UserName']] += '\n    Apple Watch ⌚'
-                        
-                    if 'NowPlayingItem' in session and 'FileName' in session['NowPlayingItem']:
-                        userSessions[session['UserName']] = '{}, codec {}'.format(session['NowPlayingItem']['FileName'], session['NowPlayingItem']['MediaStreams'][0]['Codec'])
-                        if not session['NowPlayingItem']['Id'] is None and session['NowPlayingItem']['Id'] != '' and session['UserName'] not in images_path:
-                            images_path[session['UserName']] = '{}Items/{}/Images/Primary?api_key={}'.format(config.emby_base_url, session['NowPlayingItem']['Id'], config.emby_api_key)
-                    elif 'NowPlayingItem' in session and 'Name' in session['NowPlayingItem']:
-                        userSessions[session['UserName']] = '{}, codec {}'.format(session['NowPlayingItem']['Name'], session['NowPlayingItem']['MediaStreams'][0]['Codec'])
-                        if not session['NowPlayingItem']['Id'] is None and session['NowPlayingItem']['Id'] != '' and session['UserName'] not in images_path:
-                            images_path[session['UserName']] = '{}Items/{}/Images/Primary?api_key={}'.format(config.emby_base_url, session['NowPlayingItem']['Id'], config.emby_api_key)
-
-            if len(userSessions) > 0:
-                message = f'{len(userSessions)} sesiones activas 🟢\n'
-                transmissions = dict()
-                for user in list(userSessions.keys()):
-                    message += '  {} 🧑🏼‍🦲\n    {} 🗓️\n    IP: {}\n    {},\n    {} {}\n    {}\n\n'.format(user, dates[user], ips[user], geocoder.ip(ips[user]).city, 
-                            geocoder.ip(ips[user]).state, lookup(geocoder.ip(ips[user]).country), devices[user])
-                    if not userSessions[user] is None:
-                        transmissions[user] = f'{user} viendo {userSessions[user]}\n'
-                telegramClient.sendMessage(message)
-
-                for user in list(userSessions.keys()):
-                    if user in transmissions:
-                        telegramClient.sendMessage(transmissions[user])
-
-                    if user in images_path:
-                        self.getFileFromURL(images_path[user], 'mainImage.jpeg')
-                        telegramClient.sendPhoto('mainImage.jpeg')
-                        os.remove('mainImage.jpeg')
-            else:
-                message = 'No hay ninguna sesión activa 🟡'
-                telegramClient.sendMessage(message)
 
     def qbtGetFromState(self, state):
         """ Method that returns all the torrents from a specific state
@@ -197,7 +120,7 @@ class Main():
             if state == 'descargando':
                 percent = torrent['completed'] / torrent['size'] * 100
                 eta = torrent['eta']
-                dlspeed = self.bytesConversor(torrent['dlspeed'])
+                dlspeed = bytesConversor(torrent['dlspeed'])
                 if eta >= 604800:
                     eta = '♾️'
                 else:
@@ -233,21 +156,21 @@ class Main():
                 actual_status = proxmox.nodes('pve').qemu(vm).get('rrddata?timeframe=hour')[0]
                 cpu = actual_status['cpu'] * 100
 
-                used_mem = self.bytesConversor(actual_status['mem'])
-                max_mem = self.bytesConversor(actual_status['maxmem'])
+                used_mem = bytesConversor(actual_status['mem'])
+                max_mem = bytesConversor(actual_status['maxmem'])
                 used_mem_p = actual_status['mem'] / actual_status['maxmem'] * 100
                 
                 uptime = str(datetime.timedelta(seconds=global_status['uptime']))
-                disk_space = self.bytesConversor(global_status['maxdisk'])
+                disk_space = bytesConversor(global_status['maxdisk'])
 
-                disk_wr = '{}/s'.format(self.bytesConversor(actual_status['diskwrite']))
-                disk_rd = '{}/s'.format(self.bytesConversor(actual_status['diskread']))
+                disk_wr = '{}/s'.format(bytesConversor(actual_status['diskwrite']))
+                disk_rd = '{}/s'.format(bytesConversor(actual_status['diskread']))
 
-                net_in = '{}/s'.format(self.bytesConversor(actual_status['netin']))
-                net_out = '{}/s'.format(self.bytesConversor(actual_status['netout']))
+                net_in = '{}/s'.format(bytesConversor(actual_status['netin']))
+                net_out = '{}/s'.format(bytesConversor(actual_status['netout']))
 
-                cpu_emoji = self.percentToEmoji(cpu)
-                ram_emoji = self.percentToEmoji(used_mem_p)
+                cpu_emoji = percentToEmoji(cpu)
+                ram_emoji = percentToEmoji(used_mem_p)
 
                 message += '{} 💻\n'.format(global_status['name'])
                 message += 'Status: {}\n'.format(status)
@@ -260,30 +183,7 @@ class Main():
                 message += '{} 💻\n'.format(global_status['name'])
                 message += 'Status: {}\n'.format(status)
             telegramClient.sendMessage(message)
-    
-    def percentToEmoji(self,percent):
-        if percent > 0 and percent < 30:
-            return '🟢'
-        if percent >= 30 and percent < 60:
-            return '🟡'
-        if percent >= 60 and percent < 90:
-            return '🟠'
-        if percent >= 90:
-            return '🔴'
-        return '⚪'
-
-    def bytesConversor (self,b):
-        if b > 1024 and b < 1024*1024:
-            return '{:.2f} KB'.format(b/1024)
-        elif b >= 1024*1024 and b < 1024*1024*1024:
-            return '{:.2f} MB'.format(b/(1024*1024))
-        elif b >= 1024*1024*1024 and b < 1024*1024*1024*1024:
-            return '{:.2f} GB'.format(b/(1024*1024*1024))
-        elif b >= 1024*1024*1024*1024:
-            return '{:.2f} PB'.format(b/(1024*1024*1024*1024))
-        else:
-            return '{:.2f} B'.format(b)
-    
+        
     def pingHosts(self, thread = False):
         anyException = False
         serviceDown = list()
@@ -460,21 +360,12 @@ class Main():
     def tmdbGetPoster(self, id, type='movie'):
         data_request = requests.get('{}{}/{}?api_key={}'.format(config.tmdb_main_api_url, type, id, config.tmdb_api_key))
         if data_request.status_code == requests.codes.ok:
-            self.getFileFromURL('{}{}'.format(config.tmdb_poster_url, data_request.json()['poster_path']), f'{id}.jpeg')
+            getFileFromURL('{}{}'.format(config.tmdb_poster_url, data_request.json()['poster_path']), f'{id}.jpeg')
 
     def funnyCats(self):
-        self.getFileFromURL("https://cataas.com/cat/gif", "cat.gif")
+        getFileFromURL("https://cataas.com/cat/gif", "cat.gif")
         telegramClient.sendFile('cat.gif')
         os.remove('cat.gif')
-
-    def getFileFromURL(self, url, filename):
-        try:
-            urllib.request.urlretrieve(url, filename)
-        except:
-            photo_rq = requests.get(url, stream=True)
-            with open(filename, 'wb') as out_file:
-                copyfileobj(photo_rq.raw, out_file)
-            del photo_rq
 
 if __name__ == '__main__':
     main = Main()
