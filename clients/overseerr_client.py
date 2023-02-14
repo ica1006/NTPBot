@@ -1,7 +1,7 @@
 import requests, os
 from clients.telegram_client import telegramClient
 from config import config
-from utils import tmdbGetPoster
+from libraries.utils import tmdbGetPoster
 
 class OverseerrClient():
 
@@ -17,7 +17,6 @@ class OverseerrClient():
             if print_solicitudes is True:
                 for result in results:
                     self.getSingleSolicitude(result)
-            #print(f'results {results}')
             return results
     
     def getSingleSolicitude(self, solicitude):

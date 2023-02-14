@@ -1,7 +1,7 @@
 import qbittorrentapi, datetime
 from clients.telegram_client import telegramClient
 from config import config
-from utils import bytesConversor
+from libraries.utils import bytesConversor
 
 class QBittorentClient():
 

@@ -2,8 +2,8 @@ import requests, os, geocoder
 from dateutil import parser
 from config import config
 from clients.telegram_client import telegramClient
-from emojiflags.lookup import lookup
-from utils import getFileFromURL
+from libraries.emojiflags.lookup import lookup
+from libraries.utils import getFileFromURL
 
 class EmbyClient():
 

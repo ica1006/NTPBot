@@ -1,11 +1,10 @@
-import requests, threading, re, datetime, traceback, sys, magichome
+import requests, threading, re, datetime, traceback, sys, libraries.magichome as magichome
 from config import config
 from time import sleep
 from fileinput import input
 from proxmoxer import ProxmoxAPI
-from emojiflags.lookup import lookup
-from socket import socket
-from utils import bytesConversor, percentToEmoji, weatherEmoji, funnyCats
+from libraries.emojiflags.lookup import lookup
+from libraries.utils import bytesConversor, percentToEmoji, weatherEmoji, funnyCats, pingHosts
 from clients.telegram_client import telegramClient
 from clients.logger import logger
 from clients.emby_client import embyClient
@@ -126,41 +125,10 @@ class Main():
                 message += 'Status: {}\n'.format(status)
             telegramClient.sendMessage(message)
         
-    def pingHosts(self, thread = False):
-        anyException = False
-        serviceDown = list()
-        message = ''
-        for host in config.hosts:
-            address = host['host']
-            port = host['port']
-            s = socket()
-            s.settimeout(config.ping_timeout)
-            try:
-                s.connect((address, port))
-            except:
-                try:
-                    sleep(10)
-                    s.connect((address, port))
-                except Exception as e:
-                    anyException = True
-                    serviceDown.append(f'{address}:{port}')
-                    print(e)
-                    message = 'Servicio offline detectado,'
-                    if 'name' in host:
-                        message += '\n{}'.format(host['name'])
-                    message += f'\n{address}:{port} ❌'
-                    if thread is False:
-                        telegramClient.sendMessage(message)
-            finally:
-                s.close()
-        if anyException is False and thread is False:
-            telegramClient.sendMessage('Todos los servicios online ✅')
-        return not anyException, serviceDown, message
-    
     def pingHost_Thread (self):
         down_services = list()
         while stop_threads is False:
-            up, services, message = self.pingHosts(thread=True)
+            up, services, message = pingHosts(thread=True)
             if up is False:
                 for service in services:
                     if service not in down_services:
