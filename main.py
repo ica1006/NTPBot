@@ -16,37 +16,19 @@ from clients.proxmox_client import proxmoxClient
 from clients.weatherbit_client import weatherbitClient
 
 
-stop_threads = False
-
-
 class Main():
+    reading_thread = None
+    ping_thread = None
+    solicitudes_thread = None
+    stop_threads = bool()
 
-    def readMessagesThread(self):
-        """Method that reads all the messages of the user in a new thread
-        """
-        while not stop_threads:
-            try:
-                messages = telegramClient.getMessages()
-                if type(messages) is list:
-                    nMessages = len(messages)
-                    if nMessages > 0:
-                        last_message = messages[nMessages - 1]['message']
-                        if last_message['chat']['id'] == config.chat_id:
-                            if 'text' in last_message:
-                                logger.logEntry(
-                                    'message recipt: {}'.format(last_message['text']))
-                                self.handleCommands(last_message['text'])
-                            else:
-                                logger.logEntry(
-                                    'message recipt, but there was not text detected')
-                            telegramClient.setUpdateOffset(
-                                messages[nMessages - 1]['update_id'] + 1)
-                sleep(config.message_read_delay)
-            except Exception as e:
-                logger.logEntry(f'Excepcion: {e}')
-                logger.logEntry(traceback.format_exc())
-                logger.logEntry(sys.exc_info()[2])
-                telegramClient.incrementUpdateOffset()
+    def __init__(self) -> None:
+        logger.logEntry('Bot starting in 3 seconds.')
+        logger.logEntry('Write \'exit\' to exit \n')
+        sleep(3)
+        self.startThreads()
+        logger.logEntry('Bot started')
+        telegramClient.sendMessage('Bot online 🟢')
 
     def handleCommands(self, command):
         """Method that handles user commands
@@ -91,9 +73,35 @@ class Main():
         else:
             telegramClient.sendMessage('Command not found')
 
-    def pingHost_Thread(self):
+    def startThreads(self):
+        self.stop_threads = False
+        try:
+            self.reading_thread = threading.Thread(
+                target=self.readMessagesThread)
+            self.reading_thread.start()
+            logger.logEntry('Reading thread started')
+            self.ping_thread = threading.Thread(target=self.pingHostThread)
+            self.ping_thread.start()
+            logger.logEntry('Host comprobation thread started')
+            self.solicitudes_thread = threading.Thread(
+                target=self.solicitudesThread)
+            self.solicitudes_thread.start()
+            logger.logEntry('Solicitudes thread started')
+        except:
+            logger.logEntry('Something went wrong starting the threads')
+
+    def stopThreads(self):
+        self.stop_threads = True
+        if self.reading_thread != None:
+            self.reading_thread.join()
+        if self.ping_thread != None:
+            self.ping_thread.join()
+        if self.solicitudes_thread != None:
+            self.solicitudes_thread.join()
+
+    def pingHostThread(self):
         down_services = list()
-        while stop_threads is False:
+        while self.stop_threads is False:
             up, services, message = pingHosts(thread=True)
             if up is False:
                 for service in services:
@@ -113,7 +121,7 @@ class Main():
         for result in overseerrClient.getPendingSolicitudes(print_solicitudes=False):
             current_solicitudes.append(result['id'])
 
-        while not stop_threads:
+        while not self.stop_threads:
             try:
                 solicitudes = overseerrClient.getPendingSolicitudes(
                     print_solicitudes=False)
@@ -126,31 +134,41 @@ class Main():
                 pass
             sleep(10)
 
+    def readMessagesThread(self):
+        """Method that reads all the messages of the user in a new thread
+        """
+        while not self.stop_threads:
+            try:
+                messages = telegramClient.getMessages()
+                if type(messages) is list:
+                    nMessages = len(messages)
+                    if nMessages > 0:
+                        last_message = messages[nMessages - 1]['message']
+                        if last_message['chat']['id'] == config.chat_id:
+                            if 'text' in last_message:
+                                logger.logEntry(
+                                    'message recipt: {}'.format(last_message['text']))
+                                self.handleCommands(last_message['text'])
+                            else:
+                                logger.logEntry(
+                                    'message recipt, but there was not text detected')
+                            telegramClient.setUpdateOffset(
+                                messages[nMessages - 1]['update_id'] + 1)
+                sleep(config.message_read_delay)
+            except Exception as e:
+                logger.logEntry(f'Excepcion: {e}')
+                logger.logEntry(traceback.format_exc())
+                logger.logEntry(sys.exc_info()[2])
+                telegramClient.incrementUpdateOffset()
+
 
 if __name__ == '__main__':
     main = Main()
-    logger.logEntry('Bot starting in 3 seconds.')
-    logger.logEntry('Write \'exit\' to exit')
-    sleep(3)
-    print('')
-
-    logger.logEntry('Bot started')
-    reading = threading.Thread(target=main.readMessagesThread)
-    reading.start()
-    logger.logEntry('Reading thread started')
-    host_comprobation = threading.Thread(target=main.pingHost_Thread)
-    host_comprobation.start()
-    logger.logEntry('Host comprobation thread started')
-    solicitudes_thread = threading.Thread(target=main.solicitudesThread)
-    solicitudes_thread.start()
-    logger.logEntry('Solicitudes thread started')
 
     for line in input():
         if line.rstrip().upper() == 'EXIT':
-            stop_threads = True
-            reading.join()
-            host_comprobation.join()
-            solicitudes_thread.join()
+            main.stopThreads()
+            telegramClient.sendMessage('Bot offline 🔴')
             break
         else:
             logger.logEntry('stdin not recognized')
