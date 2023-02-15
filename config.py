@@ -40,7 +40,10 @@ class Config():
 
     # Detect down services
     hosts: list
-    time_between_comprobations: int
+    time_between_automatic_ping_comprobations: int
+    ping_timeout: int
+    max_connection_tries: int
+    wait_time_between_tries: int
 
     # Weatherbit
     weatherbit_url: str
@@ -53,7 +56,6 @@ class Config():
 
     # MagicHome
     mhome_led_ip: str
-    ping_timeout: int
     
     def __init__(self, path='data.json') -> None:
         self.path = path
@@ -82,7 +84,9 @@ class Config():
         self.tmdb_lang = data['tmdb_lang']
         self.hosts = data['hosts']
         self.ping_timeout = data['ping_timeout']
-        self.time_between_comprobations = data['time_between_comprobations']
+        self.max_connection_tries = data['max_connection_tries']
+        self.time_between_automatic_ping_comprobations = data['time_between_automatic_ping_comprobations']
+        self.wait_time_between_tries = data['wait_time_between_tries']
         self.weatherbit_url = '{}?key={}&lang={}'.format(data['weatherbit_base_url'], data['weatherbit_api_key'], data['weatherbit_api_lang'])
         self.weatherbit_api_country = data['weatherbit_api_country']
         self.weatherbit_default_pcode = data['weatherbit_api_default_postal_code']

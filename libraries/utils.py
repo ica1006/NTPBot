@@ -57,33 +57,32 @@ def funnyCats():
     os.remove('cat.gif')
 
 
-def pingHosts(thread=False):
-    anyException = False
-    serviceDown = list()
+def pingHosts(max_connection_tries=config.max_connection_tries):
+    services_down = list()
     message = ''
     for host in config.hosts:
         address = host['host']
         port = host['port']
-        s = socket()
-        s.settimeout(config.ping_timeout)
-        try:
-            s.connect((address, port))
-        except:
+        connection_socket = socket()
+        connection_socket.settimeout(config.ping_timeout)
+        for connection_try in range(1, max_connection_tries + 1):
             try:
-                sleep(10)
-                s.connect((address, port))
-            except Exception as e:
-                anyException = True
-                serviceDown.append(f'{address}:{port}')
-                print(e)
-                message = 'Servicio offline detectado,'
-                if 'name' in host:
-                    message += '\n{}'.format(host['name'])
-                message += f'\n{address}:{port} ❌'
-                if thread is False:
-                    telegramClient.sendMessage(message)
-        finally:
-            s.close()
-    if anyException is False and thread is False:
-        telegramClient.sendMessage('Todos los servicios online ✅')
-    return not anyException, serviceDown, message
+                connection_socket.connect((address, port))
+                break
+            except:
+                if connection_try == max_connection_tries:
+                    services_down.append(host)
+                else:
+                    sleep(config.wait_time_between_tries)
+            finally:
+                connection_socket.close()
+
+    if len(services_down) > 0:
+        message = 'Servicio/s offline detectado,'
+        for service in services_down:
+            message += '\n{}'.format(service['name'])
+            message += '\n{}:{} ❌'.format(service['host'], service['port'])
+    else:
+        message = 'Todos los servicios online ✅'
+
+    return services_down, message

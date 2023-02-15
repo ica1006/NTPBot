@@ -48,7 +48,8 @@ class Main():
         elif command.upper() == 'PROXMOX ESTADO':
             proxmoxClient.pmxVmStatus()
         elif command.upper() == 'PING':
-            pingHosts()
+            services_down, message = pingHosts(1)
+            telegramClient.sendMessage(message)
         elif command.upper() == 'TIEMPO':
             weatherbitClient.weatherRequestHandeler(
                 config.weatherbit_default_pcode)
@@ -100,20 +101,33 @@ class Main():
             self.solicitudes_thread.join()
 
     def pingHostThread(self):
-        down_services = list()
+        notified_down_services = list()
         while self.stop_threads is False:
-            up, services, message = pingHosts(thread=True)
-            if up is False:
-                for service in services:
-                    if service not in down_services:
-                        telegramClient.sendMessage(message)
-                        down_services.append(service)
-            elif len(down_services) != 0:
-                telegramClient.sendMessage(
-                    f'Todos los servicios han vuelto a estar operativos ✅')
-                down_services.clear()
+            down_services, message = pingHosts()
 
-            sleep(config.time_between_comprobations)
+            # Si todos los servicios vuelven a estar online, mandamos el mensaje y vaciamos
+            # el historial de servicios caidos y notificados
+            if len(down_services) == 0 and len(notified_down_services) != 0:
+                telegramClient.sendMessage(message)
+                notified_down_services.clear()
+            else:
+                # Si alguno de los servicios caidos no ha sido notificado, enviamos el
+                # mensaje con la lista de todos los servicios caidos
+                if not all(service in notified_down_services for service in down_services):
+                    telegramClient.sendMessage(message)
+                    for service in down_services:
+                        if service not in notified_down_services:
+                            notified_down_services.append(service)
+
+                # Revisamos por si algun servicio caido ha vuelto a estar operativo
+                for notified_down_service in notified_down_services:
+                    if notified_down_service not in down_services:
+                        back_online_message = '\n{} ha vuelto a estar operativo ✅'.format(
+                            notified_down_service['name'])
+                        telegramClient.sendMessage(back_online_message)
+                        notified_down_services.remove(notified_down_service)
+
+            sleep(config.time_between_automatic_ping_comprobations)
 
     def solicitudesThread(self):
         current_solicitudes = list()
