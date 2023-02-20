@@ -2,7 +2,6 @@ import threading
 import re
 import traceback
 import sys
-import libraries.magichome as magichome
 from config import config
 from time import sleep
 from fileinput import input
@@ -14,6 +13,7 @@ from clients.qbittorrent_client import qbittorentClient
 from clients.overseerr_client import overseerrClient
 from clients.proxmox_client import proxmoxClient
 from clients.weatherbit_client import weatherbitClient
+from clients.magic_home_client import magicHomeClient
 
 
 class Main():
@@ -65,12 +65,20 @@ class Main():
             telegramClient.sendMessage('Config reloaded ⚙️')
         elif command.upper() == 'GATO':
             funnyCats()
+        elif command.upper() == 'LEDS':
+            magicHomeClient.get_all_devices_on_status()
         elif command.upper() == 'LEDS ON':
-            controller = magichome.MagicHomeApi(config.mhome_led_ip, 0)
-            controller.turn_on()
+            magicHomeClient.turn_device_on()
         elif command.upper() == 'LEDS OFF':
-            controller = magichome.MagicHomeApi(config.mhome_led_ip, 0)
-            controller.turn_off()
+            magicHomeClient.turn_device_off()
+        elif re.search('LEDS [0-9]+ ON', command.upper()):
+            words = command.split()
+            device = int(words[1])
+            magicHomeClient.turn_device_on(device)
+        elif re.search('LEDS [0-9]+ OFF', command.upper()):
+            words = command.split()
+            device = int(words[1])
+            magicHomeClient.turn_device_off(device)
         else:
             telegramClient.sendMessage('Command not found')
 

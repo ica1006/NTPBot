@@ -55,7 +55,7 @@ class Config():
     overseerr_url: str
 
     # MagicHome
-    mhome_led_ip: str
+    magic_home_devices: str
     
     def __init__(self, path='data.json') -> None:
         self.path = path
@@ -92,7 +92,7 @@ class Config():
         self.weatherbit_default_pcode = data['weatherbit_api_default_postal_code']
         self.overseerr_api_key = data['overseerr_api_key']
         self.overseerr_url = data['overseerr_base_url']
-        self.mhome_led_ip = data['magichome_led_device_ip']
+        self.magic_home_devices = data['magic_home_devices']
         self.message_read_delay = data['message_read_delay']
     
     def reload(self):
