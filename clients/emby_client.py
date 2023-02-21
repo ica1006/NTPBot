@@ -1,6 +1,7 @@
 import requests, os, geocoder
 from dateutil import parser
 from config import config
+from lang import lang
 from clients.telegram_client import telegramClient
 from libraries.emojiflags.lookup import lookup
 from libraries.utils import getFileFromURL
@@ -15,11 +16,11 @@ class EmbyClient():
         if rq.status_code == requests.codes.ok:
             data = rq.json()
             if data['HasUpdateAvailable'] == True:
-                telegramClient.sendMessage("Actualización disponible! ⏱️")
+                telegramClient.sendMessage(lang.emby_messages['update_avaiable'])
             else:
-                telegramClient.sendMessage("Emby está actualizado ✅")
+                telegramClient.sendMessage(lang.emby_messages['system_updated'])
         else:
-            telegramClient.sendMessage('Emby no responde ❌')
+            telegramClient.sendMessage(lang.emby_messages['emby_not_responding'])
 
     def embyOnlineUsers(self):
         """ Method that responds to 'Emby online' command.
@@ -62,13 +63,13 @@ class EmbyClient():
                             images_path[session['UserName']] = '{}Items/{}/Images/Primary?api_key={}'.format(config.emby_base_url, session['NowPlayingItem']['Id'], config.emby_api_key)
 
             if len(userSessions) > 0:
-                message = f'{len(userSessions)} sesiones activas 🟢\n'
+                message = '{} {} 🟢\n'.format(len(userSessions), lang.emby_messages['active_sessions'])
                 transmissions = dict()
                 for user in list(userSessions.keys()):
                     message += '  {} 🧑🏼‍🦲\n    {} 🗓️\n    IP: {}\n    {},\n    {} {}\n    {}\n\n'.format(user, dates[user], ips[user], geocoder.ip(ips[user]).city, 
                             geocoder.ip(ips[user]).state, lookup(geocoder.ip(ips[user]).country), devices[user])
                     if not userSessions[user] is None:
-                        transmissions[user] = f'{user} viendo {userSessions[user]}\n'
+                        transmissions[user] = '{} {} {}\n'.format(user, lang.emby_messages['watching'], userSessions[user])
                 telegramClient.sendMessage(message)
 
                 for user in list(userSessions.keys()):
@@ -80,7 +81,6 @@ class EmbyClient():
                         telegramClient.sendPhoto('mainImage.jpeg')
                         os.remove('mainImage.jpeg')
             else:
-                message = 'No hay ninguna sesión activa 🟡'
-                telegramClient.sendMessage(message)
+                telegramClient.sendMessage(lang.emby_messages['no_active_sessions'])
 
 embyClient = EmbyClient()

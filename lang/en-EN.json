@@ -1,0 +1,63 @@
+{
+    "hello_world": "Hello world!",
+    "bot_online": "Bot online 🟢",
+    "bot_offline": "Bot offline 🔴",
+    "config_reloaded": "Config reloaded ⚙️",
+    "command_not_found": "Command uknown",
+
+    "emby_messages":{
+        "update_avaiable": "Update avaiable! ⏱️",
+        "system_updated": "Emby is updated ✅",
+        "emby_not_responding": "Emby not responding ❌",
+        "active_sessions": "sessions active 🟢",
+        "watching": "watching",
+        "no_active_sessions": "No active sessions at the momment 🟡"
+    },
+
+    "overseerr_messages":{
+        "new_solicitude_detected": "New solicitude detected"
+    },
+
+    "magic_home_messages":{
+        "not_valid_device": "Invalid device",
+        "light_on": "Led on ☀️",
+        "led_on_error": "Something went wrong, device is off",
+        "led_off": "Led off 🌑",
+        "led_off_error": "Something went wrong, device is on"
+    },
+
+    "qbittorrent_messages":{
+        "not_supported_state": "Unsupported state",
+        "torrents_in_state": "Torrents in state",
+        "states":{
+            "checking": "checking",
+            "completed": "completed",
+            "downloading": "downloading",
+            "error": "error",
+            "paused": "paused",
+            "uploading": "uploading"
+        }
+    },
+
+    "weatherbit_messages":{
+        "wind": "Wind",
+        "clouds": "Clouds",
+        "rainfall": "Rainfall",
+        "air_humidity": "humidity",
+        "weatherbit_not_responding": "Weatherbit not responding ❌",
+        "code_to_emoji":{
+            "200_202": "⛈️💧",
+            "230_233": "🌩️⚡",
+            "300_302": "🌨️❄️",
+            "500_522": "🌧️☔",
+            "600_623": "🌨️⛄",
+            "700_741": "🌁🌫️",
+            "800": "☀️😎",
+            "801_802": "🌤️🌞",
+            "803": "🌥️☁️",
+            "804": "☁️☁️",
+            "900": "🌧️🌧️"
+        }
+    }
+
+}

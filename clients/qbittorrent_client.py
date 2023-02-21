@@ -1,6 +1,7 @@
 import qbittorrentapi, datetime
 from clients.telegram_client import telegramClient
 from config import config
+from lang import lang
 from libraries.utils import bytesConversor
 
 class QBittorentClient():
@@ -11,7 +12,8 @@ class QBittorentClient():
         Args:
             state (string): state of the torrents
         """        
-        if state != 'comprobando' and state != 'completados' and state != 'descargando' and state != 'error' and state != 'pausados' and state != 'subiendo':
+        #if state != 'comprobando' and state != 'completados' and state != 'descargando' and state != 'error' and state != 'pausados' and state != 'subiendo':
+        if state not in list(lang.qbittorrent_messages['states'].values()):
             telegramClient.sendMessage('Estado de torrent no soportado')
             return
 
@@ -20,17 +22,17 @@ class QBittorentClient():
         
         # Add the specific torrents to the info list
         for torrent in qbtClient.torrents_info():
-            if state == 'comprobando' and torrent.state_enum.is_checking:
+            if state == lang.qbittorrent_messages['states']['checking'] and torrent.state_enum.is_checking:
                 torrents.append(torrent.info)
-            elif state == 'completados' and torrent.state_enum.is_complete:
+            elif state == lang.qbittorrent_messages['states']['completed'] and torrent.state_enum.is_complete:
                 torrents.append(torrent.info)
-            elif state == 'descargando' and torrent.state_enum.is_downloading:
+            elif state == lang.qbittorrent_messages['states']['downloading'] and torrent.state_enum.is_downloading:
                 torrents.append(torrent.info)
-            elif state == 'error' and torrent.state_enum.is_errored:
+            elif state == lang.qbittorrent_messages['states']['error'] and torrent.state_enum.is_errored:
                 torrents.append(torrent.info)
-            elif state == 'pausados' and torrent.state_enum.is_paused:
+            elif state == lang.qbittorrent_messages['states']['paused'] and torrent.state_enum.is_paused:
                 torrents.append(torrent.info)
-            elif state == 'subiendo' and torrent.state_enum.is_uploading:
+            elif state == lang.qbittorrent_messages['states']['uploading'] and torrent.state_enum.is_uploading:
                 torrents.append(torrent.info)
         
         telegramClient.sendMessage(f'Torrents en estado {state}:')

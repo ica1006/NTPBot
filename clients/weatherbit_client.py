@@ -2,6 +2,7 @@ import requests
 import re
 from libraries.emojiflags.lookup import lookup
 from config import config
+from lang import lang
 from clients.telegram_client import telegramClient
 
 
@@ -26,13 +27,13 @@ class WeatherbitClient():
             message += f'{self.weatherEmoji(code)} {description}\n'
             message += '🌡️ {:.2f}º, se siente como {:.2f}º\n'.format(
                 temp, temp_feels_like)
-            message += 'Viento: {:.2f}m/s {}\n'.format(wind_spd, wind_dir)
-            message += 'Nubes: {:.2f}%\n'.format(cloud_percentage)
-            message += 'Precipitaciones: {:.2f}\n'.format(precip)
-            message += '{:.2f}% de humedad\n'.format(humidity_percentage)
+            message += '{}: {:.2f}m/s {}\n'.format(lang.weatherbit_messages['wind'], wind_spd, wind_dir)
+            message += '{}: {:.2f}%\n'.format(lang.weatherbit_messages['clouds'], cloud_percentage)
+            message += '{}: {:.2f}\n'.format(lang.weatherbit_messages['rainfall'], precip)
+            message += '{:.2f}% {}\n'.format(humidity_percentage, lang.weatherbit_messages['air_humidity'])
             telegramClient.sendMessage(message)
         else:
-            telegramClient.sendMessage('No se ha podido obtener el tiempo')
+            telegramClient.sendMessage(lang.weatherbit_messages['weatherbit_not_responding'])
 
     def weatherRequestHandeler(self, argument):
         if re.search('[0-9]+', argument.upper()):
@@ -51,27 +52,27 @@ class WeatherbitClient():
 
     def weatherEmoji(self, code):
         if code >= 200 and code <= 202:
-            return '⛈️💧'
+            return lang.weatherbit_messages['code_to_emoji']['200_202']
         if code >= 230 and code <= 233:
-            return '🌩️⚡'
+            return lang.weatherbit_messages['code_to_emoji']['230_233']
         if code >= 300 and code <= 302:
-            return '🌨️❄️'
+            return lang.weatherbit_messages['code_to_emoji']['300_302']
         if code >= 500 and code <= 522:
-            return '🌧️☔'
+            return lang.weatherbit_messages['code_to_emoji']['500_522']
         if code >= 600 and code <= 623:
-            return '🌨️⛄'
+            return lang.weatherbit_messages['code_to_emoji']['600_623']
         if code >= 700 and code <= 741:
-            return '🌁🌫️'
+            return lang.weatherbit_messages['code_to_emoji']['700_741']
         if code == 800:
-            return '☀️😎'
+            return lang.weatherbit_messages['code_to_emoji']['800']
         if code >= 801 and code <= 802:
-            return '🌤️🌞'
+            return lang.weatherbit_messages['code_to_emoji']['801_802']
         if code == 803:
-            return '🌥️☁️'
+            return lang.weatherbit_messages['code_to_emoji']['803']
         if code == 804:
-            return '☁️☁️'
+            return lang.weatherbit_messages['code_to_emoji']['804']
         if code == 900:
-            return '🌧️🌧️'
+            return lang.weatherbit_messages['code_to_emoji']['900']
 
 
 weatherbitClient = WeatherbitClient()

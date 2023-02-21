@@ -1,5 +1,6 @@
 import magichue
 from config import config
+from lang import lang
 from clients.telegram_client import telegramClient
 from clients.logger import logger
 
@@ -15,7 +16,7 @@ class MagicHomeClient():
     def check_if_device_in_list(self, device):
         if device <= len(self.devices) and device > 0:
             return True
-        telegramClient.sendMessage('Not valid device')
+        telegramClient.sendMessage(lang.magic_home_messages['not_valid_device'])
         return False
     
     def device_is_on(self, device):
@@ -26,18 +27,18 @@ class MagicHomeClient():
             return
         self.devices[device-1].on = True
         if self.device_is_on(device):
-            telegramClient.sendMessage("Led encendido ☀️")
+            telegramClient.sendMessage(lang.magic_home_messages['light_on'])
         else:
-            telegramClient.sendMessage("Algo ha salido mal, el led no se ha encendido")
+            telegramClient.sendMessage(lang.magic_home_messages['led_on_error'])
     
     def turn_device_off(self, device=1):
         if not self.check_if_device_in_list(device):
             return
         self.devices[device-1].on = False
         if not self.device_is_on(device):
-            telegramClient.sendMessage("Led apagado 🌑")
+            telegramClient.sendMessage(lang.magic_home_messages['led_off'])
         else:
-            telegramClient.sendMessage("Algo ha salido mal, el led no se ha encendido")
+            telegramClient.sendMessage(lang.magic_home_messages['led_off_error'])
 
     def get_all_devices_on_status(self):
         message = 'Leds status:\n'

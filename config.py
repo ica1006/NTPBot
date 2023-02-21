@@ -5,6 +5,7 @@ class Config():
     path = ''
 
     message_read_delay: int
+    app_lang: str
 
     # Telegram
     # documentation: https://core.telegram.org/bots/api
@@ -94,6 +95,7 @@ class Config():
         self.overseerr_url = data['overseerr_base_url']
         self.magic_home_devices = data['magic_home_devices']
         self.message_read_delay = data['message_read_delay']
+        self.app_lang = data['app_lang']
     
     def reload(self):
         self.loadData(self.path)

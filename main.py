@@ -3,6 +3,7 @@ import re
 import traceback
 import sys
 from config import config
+from lang import lang
 from time import sleep
 from fileinput import input
 from libraries.utils import funnyCats, pingHosts
@@ -28,7 +29,7 @@ class Main():
         sleep(3)
         self.startThreads()
         logger.logEntry('Bot started')
-        telegramClient.sendMessage('Bot online 🟢')
+        telegramClient.sendMessage(lang.bot_onlime)
 
     def handleCommands(self, command):
         """Method that handles user commands
@@ -37,7 +38,7 @@ class Main():
             command (string): user command
         """
         if command.upper() == "HOLA":
-            telegramClient.sendMessage("Hola, qué tal?")
+            telegramClient.sendMessage(lang.hello_world)
         elif command.upper() == 'EMBY ACTUALIZADO?':
             embyClient.embyUpToDate()
         elif command.upper() == 'EMBY ONLINE':
@@ -62,7 +63,8 @@ class Main():
             overseerrClient.getPendingSolicitudes()
         elif command.upper() == 'RELOAD':
             config.reload()
-            telegramClient.sendMessage('Config reloaded ⚙️')
+            lang.reloadLang()
+            telegramClient.sendMessage(lang.config_reloaded)
         elif command.upper() == 'GATO':
             funnyCats()
         elif command.upper() == 'LEDS':
@@ -80,7 +82,7 @@ class Main():
             device = int(words[1])
             magicHomeClient.turn_device_off(device)
         else:
-            telegramClient.sendMessage('Command not found')
+            telegramClient.sendMessage(lang.command_not_found)
 
     def startThreads(self):
         self.stop_threads = False
@@ -149,7 +151,7 @@ class Main():
                     print_solicitudes=False)
                 for result in solicitudes:
                     if result['id'] not in current_solicitudes:
-                        telegramClient.sendMessage('Nueva solicitud detectada')
+                        telegramClient.sendMessage(lang.overseerr_messages['new_solicitude_detected'])
                         current_solicitudes.append(result['id'])
                         overseerrClient.getSingleSolicitude(result)
             except:
@@ -190,7 +192,7 @@ if __name__ == '__main__':
     for line in input():
         if line.rstrip().upper() == 'EXIT':
             main.stopThreads()
-            telegramClient.sendMessage('Bot offline 🔴')
+            telegramClient.sendMessage(lang.bot_offline)
             break
         else:
             logger.logEntry('stdin not recognized')
