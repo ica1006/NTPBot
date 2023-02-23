@@ -63,7 +63,7 @@ class Main():
             overseerrClient.getPendingSolicitudes()
         elif command.upper() == 'RELOAD':
             config.reload()
-            lang.reloadLang()
+            lang.reloadLang(config.app_lang)
             telegramClient.sendMessage(lang.config_reloaded)
         elif command.upper() == 'GATO':
             funnyCats()

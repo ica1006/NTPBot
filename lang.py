@@ -36,7 +36,6 @@ class Lang():
         self.weatherbit_messages = data['weatherbit_messages']
     
     def reloadLang(self, new_lang=config.app_lang):
-        print(f'New lang {new_lang}')
         self.app_lang = new_lang
         self.loadMessages()
 
