@@ -3,6 +3,7 @@
     "bot_online": "Bot online 🟢",
     "bot_offline": "Bot offline 🔴",
     "config_reloaded": "Config reloaded ⚙️",
+    "lang_changed": "Lang changed 🔠",
     "command_not_found": "Command uknown",
 
     "emby_messages":{

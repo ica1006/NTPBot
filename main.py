@@ -2,6 +2,7 @@ import threading
 import re
 import traceback
 import sys
+import os
 from config import config
 from lang import lang
 from time import sleep
@@ -31,7 +32,7 @@ class Main():
         logger.logEntry('Bot started')
         telegramClient.sendMessage(lang.bot_onlime)
 
-    def handleCommands(self, command):
+    def handleCommands(self, command: str):
         """Method that handles user commands
 
         Args:
@@ -65,6 +66,13 @@ class Main():
             config.reload()
             lang.reloadLang(config.app_lang)
             telegramClient.sendMessage(lang.config_reloaded)
+        elif command.split(' ')[0].upper() == 'IDIOMA' and re.search('[a-z][a-z]-[A-Z][A-Z]', command.split(' ')[1]):
+            language_str = command.split(' ')[1]
+            regex = re.compile(f'.+\.json')
+            lista_filtrada = [i.removesuffix('.json') for i in os.listdir("./lang") if regex.match(i)]
+            if language_str in lista_filtrada:
+                lang.reloadLang(language_str)
+                telegramClient.sendMessage(lang.lang_changed)
         elif command.upper() == 'GATO':
             funnyCats()
         elif command.upper() == 'LEDS':

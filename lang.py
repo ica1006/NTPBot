@@ -8,6 +8,7 @@ class Lang():
     bot_onlime: str
     bot_offline: str
     config_reloaded: str
+    lang_changed: str
     command_not_found: str
 
     emby_messages: dict()
@@ -27,6 +28,7 @@ class Lang():
         self.bot_onlime = data['bot_online']
         self.bot_offline = data['bot_offline']
         self.config_reloaded = data['config_reloaded']
+        self.lang_changed = data['lang_changed']
         self.command_not_found = data['command_not_found']
 
         self.emby_messages = data['emby_messages']
