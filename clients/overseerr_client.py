@@ -1,22 +1,24 @@
 import requests, os
 from clients.telegram_client import telegramClient
 from config import config
+from time import sleep
 from libraries.utils import tmdbGetPoster
 
 class OverseerrClient():
 
-    def getPendingSolicitudes(self, print_solicitudes=True):
+    def getPendingSolicitudes(self, print_solicitudes=True, request_filter='unavailable'):
         headers = {
             'X-Api-Key': config.overseerr_api_key
         }
 
-        rq = requests.get(url='{}{}'.format(config.overseerr_url, 'request'), headers=headers)
+        rq = requests.get(url='{}{}?take=9999&filter={}'.format(config.overseerr_url, 'request', request_filter), headers=headers)
         if rq.status_code == requests.codes.ok:
             data = rq.json()
             results = data['results']
             if print_solicitudes is True:
                 for result in results:
                     self.getSingleSolicitude(result)
+                    sleep(0.5)
             return results
     
     def getSingleSolicitude(self, solicitude):
