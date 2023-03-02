@@ -40,27 +40,27 @@ class Main():
         """
         if command.upper() == "HOLA":
             telegramClient.sendMessage(lang.hello_world)
-        elif command.upper() == 'EMBY ACTUALIZADO?':
+        elif command.upper() == 'EMBY ACTUALIZADO?' and config.emby_enabled == True:
             embyClient.embyUpToDate()
-        elif command.upper() == 'EMBY ONLINE':
+        elif command.upper() == 'EMBY ONLINE' and config.emby_enabled == True:
             embyClient.embyOnlineUsers()
-        elif re.search('QBITTORRENT [A-z]+', command.upper()):
+        elif re.search('QBITTORRENT [A-z]+', command.upper()) and config.qbittorrent_enabled == True:
             words = command.split()
             qbittorentClient.qbtGetFromState(words[1])
-        elif command.upper() == 'PROXMOX ESTADO':
+        elif command.upper() == 'PROXMOX ESTADO' and config.proxmox_enabled == True:
             proxmoxClient.pmxVmStatus()
-        elif command.upper() == 'PING':
+        elif command.upper() == 'PING' and config.ping_enabled == True:
             services_down, message = pingHosts(1)
             telegramClient.sendMessage(message)
-        elif command.upper() == 'TIEMPO':
+        elif command.upper() == 'TIEMPO' and config.weatherbit_enabled == True:
             weatherbitClient.weatherRequestHandeler(
                 config.weatherbit_default_pcode)
-        elif re.search('TIEMPO( ([0-9]+|([A-z ]+(, [A-z]+)?)))?', command.upper()):
+        elif re.search('TIEMPO( ([0-9]+|([A-z ]+(, [A-z]+)?)))?', command.upper()) and config.weatherbit_enabled == True:
             words = command.split()
             words.pop(0)
             argument = ' '.join(words)
             weatherbitClient.weatherRequestHandeler(argument)
-        elif command.upper() == 'SOLICITUDES':
+        elif command.upper() == 'SOLICITUDES' and config.overseerr_enabled == True:
             overseerrClient.getPendingSolicitudes()
         elif command.upper() == 'RELOAD':
             config.reload()
@@ -75,17 +75,17 @@ class Main():
                 telegramClient.sendMessage(lang.lang_changed)
         elif command.upper() == 'GATO':
             funnyCats()
-        elif command.upper() == 'LEDS':
+        elif command.upper() == 'LEDS' and config.magic_home_enabled == True:
             magicHomeClient.get_all_devices_on_status()
-        elif command.upper() == 'LEDS ON':
+        elif command.upper() == 'LEDS ON' and config.magic_home_enabled == True:
             magicHomeClient.turn_device_on()
-        elif command.upper() == 'LEDS OFF':
+        elif command.upper() == 'LEDS OFF' and config.magic_home_enabled == True:
             magicHomeClient.turn_device_off()
-        elif re.search('LEDS [0-9]+ ON', command.upper()):
+        elif re.search('LEDS [0-9]+ ON', command.upper()) and config.magic_home_enabled == True:
             words = command.split()
             device = int(words[1])
             magicHomeClient.turn_device_on(device)
-        elif re.search('LEDS [0-9]+ OFF', command.upper()):
+        elif re.search('LEDS [0-9]+ OFF', command.upper()) and config.magic_home_enabled == True:
             words = command.split()
             device = int(words[1])
             magicHomeClient.turn_device_off(device)
@@ -99,13 +99,15 @@ class Main():
                 target=self.readMessagesThread)
             self.reading_thread.start()
             logger.logEntry('Reading thread started')
-            self.ping_thread = threading.Thread(target=self.pingHostThread)
-            self.ping_thread.start()
-            logger.logEntry('Host comprobation thread started')
-            self.solicitudes_thread = threading.Thread(
-                target=self.solicitudesThread)
-            self.solicitudes_thread.start()
-            logger.logEntry('Solicitudes thread started')
+            if config.ping_enabled:
+                self.ping_thread = threading.Thread(target=self.pingHostThread)
+                self.ping_thread.start()
+                logger.logEntry('Host comprobation thread started')
+            if config.overseerr_enabled:
+                self.solicitudes_thread = threading.Thread(
+                    target=self.solicitudesThread)
+                self.solicitudes_thread.start()
+                logger.logEntry('Solicitudes thread started')
         except:
             logger.logEntry('Something went wrong starting the threads')
 

@@ -7,6 +7,15 @@ class Config():
     message_read_delay: int
     app_lang: str
 
+    # Clients enabled
+    emby_enabled: bool
+    qbittorrent_enabled: bool
+    proxmox_enabled: bool
+    ping_enabled: bool
+    weatherbit_enabled: bool
+    overseerr_enabled: bool
+    magic_home_enabled: bool
+
     # Telegram
     # documentation: https://core.telegram.org/bots/api
     telegram_bot_api_key: str
@@ -67,6 +76,14 @@ class Config():
         with open(path, encoding='UTF-8') as json_file:
             data = load(json_file)
         
+        self.emby_enabled = data['emby_enabled']
+        self.qbittorrent_enabled = data['qbittorrent_enabled']
+        self.proxmox_enabled = data['proxmox_enabled']
+        self.ping_enabled = data['ping_enabled']
+        self.weatherbit_enabled = data['weatherbit_enabled']
+        self.overseerr_enabled = data['overseerr_enabled']
+        self.magic_home_enabled = data['magic_home_enabled']
+
         self.telegram_bot_api_key = data['telegram_bot_api_key']
         self.telegram_base_url = '{}{}/'.format(data['telegram_base_url'], self.telegram_bot_api_key)
         self.chat_id = data['chat_id']
